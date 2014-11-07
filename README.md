@@ -15,7 +15,7 @@ runin <category> [<category> ...] [-- command [args]]
 
 TODO
 --------
-Support nested categories
-Parallelize running commands in categories
+- Support nested categories
+- Parallelize running commands in categories
 
 
