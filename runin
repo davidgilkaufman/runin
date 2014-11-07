@@ -1,0 +1,75 @@
+#!/bin/bash
+
+# This is a script for running bash commands in groups of directories
+# Example usage: runin git_repos -- git status --porcelain
+# If you  don't provide a command you can issue commands interactively on stdin instead
+
+# Define some constant directories
+CONF_DIR="$HOME/.config/runin"
+CATEGORY_DIR="$CONF_DIR/categories"
+mkdir -p "$CATEGORY_DIR"
+
+# Define some formatting constants
+bold=`tput bold`
+normal=`tput sgr0`
+
+function usage {
+	echo "Usage: runin <category> [<category> ...] [-- command [args]]"
+	echo
+	echo "Each category corresponds to a file in $CATEGORY_DIR and contains a list of directories. This script runs the provided command (or reads commands from stdin if no command is provided) on all directories specified by all categories."
+}
+
+function direxec {
+	for d in $dirlist; do
+		output=$(cd $d && bash -c "$1" 2>&1)
+		if [ -n "$output" ]; then
+			echo "$bold$d$normal"
+			echo "$output"
+		fi
+	done
+}
+
+# Initialize/parse args
+# Args are of the form <category> [<category> ...] [-- command [args]]
+# Also parse the -h flag --> print usage and exit
+if [ -z "$1" ]; then # if no arguments print usage
+	usage
+	exit 1
+fi
+
+dirlist=()
+cmd=
+while  (( "$#" )); do
+	if [ "$1" = "--" ]; then # if "--" appears anywhere treat the remainder of arguments as a command/args
+		shift
+		cmd="$*"
+		break
+	fi
+
+	if [ "$1" = "-h" ]; then # if "-h" appears anywhere print usage and exit
+		usage
+		exit 0
+	fi
+
+	# parse the argument as a category name
+	if ! dirlist+=$(cat "$CATEGORY_DIR/$1" 2>&1); then
+		echo "Invalid category $1. You should create the file $CATEGORY_DIR/$1. Exiting..."
+		exit 1
+	fi
+	shift
+done
+dirlist=$(echo "$dirlist" | sort | uniq)
+
+if [ -z "$dirlist" ]; then
+	echo "No directories specified. Exiting."
+	exit 2
+fi
+
+if [ -z "$cmd" ]; then
+	echo "Running commands in $(echo "$dirlist" | wc -l) directories"
+	while echo -n "\$ " && read cmd; do
+		direxec "$cmd"
+	done
+else
+	direxec "$cmd"
+fi
